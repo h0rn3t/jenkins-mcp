@@ -1,0 +1,100 @@
+version: "2"
+linters:
+  enable:
+    # Minimum recommended
+    - errcheck
+    - govet
+    - revive
+    - staticcheck
+    # Additional recommended
+    - bodyclose
+    - gocyclo
+    - gosec
+    - ineffassign
+    - misspell
+    # Enforce what the go-* skills teach
+    - depguard      # go-packages: stdlib-first dependency ladder
+    - errname       # go-naming: ErrFoo sentinels, FooError types
+    - errorlint     # go-error-handling: errors.Is/AsType, never == or a type assertion
+    - exhaustive    # go-style-core: switch covers every iota enum member
+    - godot         # go-documentation: doc comments are full sentences
+    - modernize     # go-style-core: current Go idioms; appendclipped/slicesdelete stay off (they change nilness)
+    - noctx         # go-context / go-http: outbound calls carry a context
+    - nolintlint    # go-linting: a suppression names its linter and its reason
+    - perfsprint    # go-performance: strconv over fmt.Sprint
+    - prealloc      # go-performance: capacity hints for appended slices
+    - rowserrcheck  # go-database: rows.Err checked after the loop
+    - sloglint      # go-logging: static message, key-value attrs, snake_case keys
+    - sqlclosecheck # go-database: rows and statements closed
+    - usetesting    # go-testing: t.Context, t.TempDir, t.Setenv over hand-rolled forms
+    - usestdlibvars # go-http: named HTTP methods and status codes
+  settings:
+    revive:
+      rules:
+        - name: exported
+    gocyclo:
+      min-complexity: 15
+    depguard:
+      rules:
+        stdlib-first:
+          deny:
+            - pkg: github.com/pkg/errors
+              desc: use fmt.Errorf with %w, errors.Is, errors.AsType (go-error-handling)
+            - pkg: github.com/sirupsen/logrus
+              desc: use log/slog (go-logging)
+            - pkg: go.uber.org/zap
+              desc: use log/slog unless profiling shows slog is the bottleneck (go-logging)
+            - pkg: golang.org/x/exp/slices
+              desc: use slices from the standard library (Go 1.21+)
+            - pkg: golang.org/x/exp/maps
+              desc: use maps from the standard library (Go 1.21+)
+            - pkg: github.com/google/uuid
+              desc: use the standard library uuid for New/NewV4/NewV7, Parse/MustParse, Nil/Max, Compare (Go 1.27+); keep only for v1/v3/v5
+    errorlint:
+      # %v at a system boundary is deliberate (go-error-handling); keep the
+      # comparison and type-assertion checks, which are never deliberate.
+      errorf: false
+    exhaustive:
+      default-signifies-exhaustive: true
+    sloglint:
+      key-naming-case: snake
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    usestdlibvars:
+      http-method: true
+      http-status-code: true
+    errcheck:
+      # A deferred Close has nowhere to return its error, and since Go 1.27 it
+      # also drains the body. The one close whose result matters is returned.
+      exclude-functions:
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+    rules:
+      # Test fixtures write to an in-memory ResponseWriter, run the binary under
+      # test, and spell out the credentials this code must reject.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gocyclo
+          - gosec
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
