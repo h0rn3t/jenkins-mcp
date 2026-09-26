@@ -1,46 +1,48 @@
 # jenkins-mcp
 
-An MCP server that gives a model read access to a Jenkins controller — jobs,
-builds and console logs — plus the ability to start and abort builds. It speaks
-MCP over stdio, so an MCP client launches it as a child process.
+MCP-сервер, який дає моделі доступ до контролера Jenkins — jobs, збірок і
+консольних логів — а також можливість запускати та переривати збірки. Він
+говорить MCP через stdio, тож MCP-клієнт запускає його як дочірній процес.
 
-## Install
+## Встановлення
 
 ```sh
 go install github.com/eugeneshershen/jenkins-mcp/cmd/jenkins-mcp@latest
 ```
 
-Or build from a checkout:
+Або зберіть із копії репозиторію:
 
 ```sh
 go build -o jenkins-mcp ./cmd/jenkins-mcp
 ```
 
-## Configure
+## Налаштування
 
-Everything comes from the environment, which is how an MCP client passes
-configuration to a server:
+Усе береться зі змінних середовища — саме так MCP-клієнт передає
+конфігурацію серверу:
 
-| Variable | Meaning |
+| Змінна | Значення |
 | --- | --- |
-| `JENKINS_URL` | The controller's root URL. Required. A path prefix (`https://ci.example.com/jenkins`) is kept. |
-| `JENKINS_USER` | The account to authenticate as. |
-| `JENKINS_TOKEN` | That account's API token. Create one under *Your name → Security → API Token*. |
-| `JENKINS_PASSWORD` | That account's password, for a controller where you authenticate without a token. |
-| `JENKINS_TIMEOUT` | Per-request timeout, e.g. `45s`. Optional, default `30s`. |
+| `JENKINS_URL` | Коренева URL-адреса контролера. Обов'язкова. Префікс шляху (`https://ci.example.com/jenkins`) зберігається. |
+| `JENKINS_USER` | Обліковий запис, від імені якого виконується автентифікація. |
+| `JENKINS_TOKEN` | API-токен цього облікового запису. Створіть його в *Your name → Security → API Token*. |
+| `JENKINS_PASSWORD` | Пароль цього облікового запису — для контролера, де автентифікація відбувається без токена. |
+| `JENKINS_TIMEOUT` | Таймаут на один запит, напр. `45s`. Необов'язковий, типово `30s`. |
 
-Jenkins accepts an API token or a password in the same HTTP Basic field, so
-either works. `JENKINS_TOKEN` wins when both are set. A token is worth
-preferring: it can be revoked on its own, and it does not grant a web session
-to whoever reads it.
+Jenkins приймає API-токен або пароль в одному й тому самому полі HTTP Basic,
+тож підходить будь-що. Якщо задано обидва, перемагає `JENKINS_TOKEN`. Токену
+варто віддавати перевагу: його можна відкликати окремо, і він не дає вебсесії
+тому, хто його прочитає.
 
-Set the user together with one of the two secrets, or neither for a controller
-that allows anonymous access; the server refuses to start with only one of them.
+Вказуйте користувача разом з одним із двох секретів — або ні того, ні того
+для контролера, що дозволяє анонімний доступ; сервер відмовляється стартувати,
+якщо задано лише щось одне з них.
 
-The secret is read from the environment and never from a command-line flag, so
-it does not show up in the process table. Over a plain `http://` controller it
-still travels base64-encoded on every request — that is HTTP Basic auth, not
-this server, but it is the reason a revocable token beats an account password.
+Секрет читається з середовища і ніколи не з прапорця командного рядка, тож
+не потрапляє до списку процесів. Через контролер на простому `http://` він
+усе одно передається base64-кодованим у кожному запиті — це HTTP Basic, а не
+цей сервер, але саме тому токен, який можна відкликати, кращий за пароль
+облікового запису.
 
 ### Claude Code
 
@@ -52,7 +54,7 @@ claude mcp add jenkins -- \
       jenkins-mcp
 ```
 
-### Any client that reads a JSON config
+### Будь-який клієнт, що читає JSON-конфіг
 
 ```json
 {
@@ -62,110 +64,114 @@ claude mcp add jenkins -- \
       "env": {
         "JENKINS_URL": "https://ci.example.com",
         "JENKINS_USER": "you",
-        "JENKINS_TOKEN": "11aabbcc..."
+        "JENKINS_PASSWORD": "11aabbcc..."
       }
     }
   }
 }
 ```
 
-## Tools
+## Інструменти
 
-Every `job` argument is a slash-separated path of job names exactly as it
-appears in a Jenkins URL: `nightly`, or `team/nightly` for a job in a folder.
-Where a build number may be omitted, the most recent build is used.
+Кожен аргумент `job` — це шлях із назв job, розділених слешем, точно такий,
+як він виглядає в URL Jenkins: `nightly`, або `team/nightly` для job у папці.
+Там, де номер збірки можна опустити, використовується найновіша збірка.
 
-| Tool | Does |
+| Інструмент | Що робить |
 | --- | --- |
-| `jenkins_summarize_failures` | Aggregates a whole window of builds across many jobs in one call — see below. |
-| `jenkins_list_jobs` | Lists jobs and folders inside a folder, or at the top level. Does not recurse — pass a returned `fullName` as `folder` to descend. |
-| `jenkins_get_job` | One job: status, last build, and the parameters it accepts. |
-| `jenkins_list_builds` | A job's recent builds, newest first (default 10, max 100). |
-| `jenkins_get_build` | One build: status, start time, duration. |
-| `jenkins_get_test_results` | A build's test counts plus the failing tests, each with the `age` that separates a new break from a long-standing one. |
-| `jenkins_get_console_log` | A window of a build's console log. Returns the tail by default. |
-| `jenkins_trigger_build` | Starts a build and returns the queue item. |
-| `jenkins_stop_build` | Aborts a running build. The build number is required. |
+| `jenkins_summarize_failures` | Агрегує ціле вікно збірок по багатьох job за один виклик — див. нижче. |
+| `jenkins_list_jobs` | Перелічує job і папки безпосередньо всередині папки, або на верхньому рівні. Не рекурсує — щоб спуститися, передайте отриманий `fullName` як `folder`. |
+| `jenkins_get_job` | Один job: статус, остання збірка та параметри, які він приймає. |
+| `jenkins_list_builds` | Останні збірки job, найновіші першими (типово 10, максимум 100). |
+| `jenkins_get_build` | Одна збірка: статус, час старту, тривалість. |
+| `jenkins_get_test_results` | Підсумки тестів збірки плюс тести, що впали, кожен із `age`, який відрізняє нову поломку від давньої. |
+| `jenkins_get_console_log` | Вікно консольного логу збірки. Типово повертає хвіст. |
+| `jenkins_trigger_build` | Запускає збірку й повертає елемент черги. |
+| `jenkins_stop_build` | Перериває запущену збірку. Номер збірки обов'язковий. |
 
-The seven read tools are annotated `readOnlyHint`, so a client can let them run
-without asking. `jenkins_trigger_build` and `jenkins_stop_build` are not, so a
-client can require confirmation.
+Сім інструментів читання позначені `readOnlyHint`, тож клієнт може дозволити
+їм виконуватися без запитання. `jenkins_trigger_build` і `jenkins_stop_build` —
+ні, тож клієнт може вимагати підтвердження.
 
-### Reading a whole night at once
+### Прочитати цілу ніч за один раз
 
-Answering "what broke last night" one build at a time costs dozens of calls and
-megabytes of test reports. `jenkins_summarize_failures` does it server-side:
+Відповідати на «що зламалося минулої ночі», читаючи збірки по одній, коштує
+десятків викликів і мегабайтів звітів про тести. `jenkins_summarize_failures`
+робить це на боці сервера:
 
 ```text
 jenkins_summarize_failures  jobFilter: "DATAHUB"  since: "30h"
 ```
 
-It walks every job whose name contains `jobFilter`, fetches their test reports
-concurrently, and returns one compact document:
+Він обходить кожен job, чия назва містить `jobFilter`, паралельно забирає
+їхні звіти про тести й повертає один компактний документ:
 
-- `totals` — tests, passed, failed, skipped across the window.
-- `age` — failures split into `fresh` (new in that build), `recent` (2–5 builds),
-  `standing` (6+) and `debt` (20+). This is the difference between "a regression
-  landed" and "the same tests are still red".
-- `nature` — what kind each fresh failure is: a missing UI element, a click
-  timeout, a response body, a SQL mismatch, a failed export.
-- `services` — the services and database tables **named outright** in an error's
-  text. Being named is the evidence; a table is reported under its own name
-  rather than guessed into a service.
-- `clusters` — suites where several fresh failures landed together, with a
-  sample error and `failedSince`. A real regression has this shape; scattered
-  single failures are environment noise.
-- `runs` — each build with its **local** calendar date, which is what groups a
-  nightly run that crosses midnight UTC.
-- `noTestReport` — builds that published no report at all. A broken publish
-  step, not failing tests, and never mixed in with them.
+- `totals` — тести, пройдені, провалені та пропущені за вікно.
+- `age` — падіння, розділені на `fresh` (нові в цій збірці), `recent` (2–5
+  збірок), `standing` (6+) і `debt` (20+). Це і є різниця між «в'їхала
+  регресія» та «ті самі тести досі червоні».
+- `nature` — якого роду кожне свіже падіння: відсутній UI-елемент, таймаут
+  кліку, тіло відповіді, розбіжність SQL, невдалий експорт.
+- `services` — сервіси й таблиці бази даних, **прямо названі** в тексті
+  помилки. Названість і є доказом; таблиця звітується під власним ім'ям, а не
+  вгадується як сервіс.
+- `clusters` — сюїти, де разом лягло кілька свіжих падінь, зі зразком помилки
+  та `failedSince`. Справжня регресія має саме таку форму; розкидані
+  поодинокі падіння — це шум середовища.
+- `runs` — кожна збірка з її **локальною** календарною датою, а це саме те,
+  що групує нічний прогін, який перетинає північ за UTC.
+- `noTestReport` — збірки, які взагалі не опублікували звіт. Це зламаний крок
+  публікації, а не тести, що впали, і вони ніколи не змішуються з ними.
 
-`errors` lists jobs that could not be read; a summary carrying it is partial and
-says so rather than silently reporting smaller numbers.
+`errors` перелічує job, які не вдалося прочитати; підсумок із ним є частковим
+і каже про це, а не мовчки звітує менші числа.
 
-### Reading a long log
+### Читання довгого логу
 
-`jenkins_get_console_log` never returns a whole log: it returns at most
-`maxBytes` (default 64 KiB, hard cap 1 MiB) so one failed build cannot fill the
-model's context. The result carries the offsets needed to read more:
+`jenkins_get_console_log` ніколи не повертає лог цілком: щонайбільше
+`maxBytes` (типово 64 KiB, жорстка межа 1 MiB), щоб одна невдала збірка не
+могла заповнити контекст моделі. Результат несе зміщення, потрібні, щоб
+читати далі:
 
-- `end` — pass it back as `start` to continue from where the window stopped.
-- `size` — how many bytes exist right now.
-- `truncated` — output past `end` is already available.
-- `running` — the build is still writing.
+- `end` — передайте його назад як `start`, щоб продовжити з місця, де
+  зупинилося вікно.
+- `size` — скільки байтів існує на цю мить.
+- `truncated` — вивід за `end` уже доступний.
+- `running` — збірка все ще пише.
 
-With no `start`, the window is the **tail** of the log, which is where a
-failure is usually reported.
+Без `start` вікно — це **хвіст** логу, саме там зазвичай повідомляється про
+збій.
 
-## What it will not do
+## Чого він не робитиме
 
-- **Leave the job tree.** A job path is split on `/` and each segment is
-  checked and escaped, so `../../manage`, an embedded newline, or a `?` in a
-  job name cannot reach another endpoint or forge a request.
-- **Repeat the controller to the model.** A failed request becomes a short
-  error naming the method, path and condition. A Jenkins error page is HTML
-  meant for an operator and never reaches the model.
-- **Log secrets.** The token or password appears in the `Authorization` header
-  and nowhere else — not in errors, not on stderr.
-- **Send invalid UTF-8.** Console text is sanitised, since build logs carry
-  arbitrary bytes.
+- **Виходити за дерево job.** Шлях job розбивається по `/`, і кожен сегмент
+  перевіряється та екранується, тож `../../manage`, вбудований символ нового
+  рядка чи `?` у назві job не можуть дістатися іншого ендпойнта або підробити
+  запит.
+- **Повторювати контролер моделі.** Невдалий запит стає короткою помилкою із
+  зазначенням методу, шляху та умови. Сторінка помилки Jenkins — це HTML для
+  оператора, і вона ніколи не доходить до моделі.
+- **Логувати секрети.** Токен або пароль з'являється в заголовку
+  `Authorization` і ніде більше — ні в помилках, ні в stderr.
+- **Надсилати невалідний UTF-8.** Консольний текст санується, бо логи збірок
+  містять довільні байти.
 
-The server needs only the permissions its account has. For read-only use, give
-it an account with Overall/Read and Job/Read and nothing else — then
-`jenkins_trigger_build` and `jenkins_stop_build` fail at the controller rather
-than relying on the model to avoid them.
+Серверу потрібні лише ті права, які має його обліковий запис. Для
+використання тільки на читання дайте йому акаунт з Overall/Read і Job/Read і
+більше нічого — тоді `jenkins_trigger_build` і `jenkins_stop_build` падають на
+контролері, а не покладаються на те, що модель їх уникатиме.
 
-## Development
+## Розробка
 
 ```sh
-go test -race ./...     # includes an end-to-end test that builds the binary
-                        # and speaks MCP to it over stdio
+go test -race ./...     # містить наскрізний тест, який збирає бінарник
+                        # і говорить з ним MCP через stdio
 golangci-lint run ./...
 govulncheck ./...
 ```
 
-Layout: [cmd/jenkins-mcp/](cmd/jenkins-mcp/) reads the environment and serves;
-[internal/jenkins/](internal/jenkins/) is the Jenkins client, with no MCP in it;
-[internal/analysis/](internal/analysis/) aggregates many builds into one summary,
-with no HTTP in it; [internal/mcptools/](internal/mcptools/) maps both onto MCP
-tools.
+Структура: [cmd/jenkins-mcp/](cmd/jenkins-mcp/) читає середовище й обслуговує;
+[internal/jenkins/](internal/jenkins/) — це клієнт Jenkins, без MCP усередині;
+[internal/analysis/](internal/analysis/) агрегує багато збірок в один підсумок,
+без HTTP усередині; [internal/mcptools/](internal/mcptools/) відображає обидва
+на MCP-інструменти.

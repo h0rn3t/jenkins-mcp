@@ -1,0 +1,87 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "graft _statusline"
+  },
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "graft _statusline"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graft _hook post-edit",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Grep|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graft _hook tool-savings",
+            "timeout": 8
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graft _hook prompt",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graft _hook session-start",
+            "timeout": 8
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graft _hook stop",
+            "timeout": 8
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graft _hook stop",
+            "timeout": 8
+          }
+        ]
+      }
+    ]
+  },
+  "footerLinksRegexes": [
+    "graft/[\\w./-]+\\.md"
+  ],
+  "permissions": {
+    "allow": [
+      "Bash(graft:*)",
+      "Bash(graft-dev:*)"
+    ]
+  }
+}
